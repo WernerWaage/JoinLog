@@ -1,0 +1,9 @@
+name: JoinLog
+main: org.overminds.joinLog.JoinLog
+author: WernerWaage
+version: 1.0
+
+commands:
+  joinlog:
+    description: A list of players
+    usage: /joinlog
