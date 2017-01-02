@@ -1,7 +1,9 @@
 package org.overminds.joinLog;
 
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.UUID;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -10,56 +12,80 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.mysql.jdbc.Connection;
+// import com.mysql.jdbc.PreparedStatement;
 
 public class JoinLog extends JavaPlugin {
 	 
 	//Load config:
 	FileConfiguration config = getConfig();
 	
-    //DataBase vars.
-    final String username="minecraft_web"; //Enter in your db username
-    final String password=""; //Enter your password for the db
-    final String url = "jdbc:mysql://localhost:3306/minecraft?autoReconnect=true&useSSL=false"; //Enter URL w/db name
-
     //Connection vars
-    static Connection connection; //This is the variable we will use to connect to database
+    static Connection myConnection; //This is the variable we will use to connect to database
 	
 	
     // Fired when plugin is first enabled
     @Override
     public void onEnable() {
+    	
+    	
         // Register our command "kit" (set an instance of your command class as executor)
         this.getCommand("joinlog").setExecutor(new CommandJoinlist());
         
- 
     	// Initialize default config variables
     	config.addDefault("SqlHostname", "localhost:3306");
-    	config.addDefault("SqlDatabase", "Database");
-    	config.addDefault("SqlUsername", "Username");
+    	config.addDefault("SqlDatabase", "Minecraft");
+    	config.addDefault("SqlUsername", "minecraft_web");
     	config.addDefault("SqlPassword", "1234");
     	config.addDefault("SqlSSL", false);
     	config.addDefault("Author", "WernerWaage");
         config.options().copyDefaults(true);
-        
         saveConfig();
 
        // Enable our class to check for new players using onPlayerJoin()
        // getServer().getPluginManager().registerEvents(this, this);
     	
  
-        try { //We use a try catch to avoid errors, hopefully we don't get any.
+        try { // check for jdbc driver
             Class.forName("com.mysql.jdbc.Driver"); //this accesses Driver in jdbc.
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
             System.err.println("jdbc driver unavailable!");
             return;
         }
-        try { //Another try catch to get any SQL errors (for example connections errors)
-            connection = (Connection) DriverManager.getConnection(url,username,password);
-            //with the method getConnection() from DriverManager, we're trying to set
-            //the connection's url, username, password to the variables we made earlier and
-            //trying to get a connection at the same time. JDBC allows us to do this.
+        try { 
+        	//Attempt SQL Connection:
+            //DataBase vars, load from config and create connection string
+ 
+            final String username=config.getString("SqlUsername"); //Enter in your db username
+            final String password=config.getString("SqlPassword"); //Enter your password for the db
+            final String hostname=config.getString("SqlHostname"); //Enter your password for the db
+            final String database=config.getString("SqlDatabase"); //Enter your password for the db
+            final String usessl=config.getString("SqlSSL"); //Enter your password for the db
+            
+            final String url = "jdbc:mysql://" + hostname + "/" + database + "?autoReconnect=true&useSSL=" + usessl + "";
+
+            myConnection = (Connection) DriverManager.getConnection(url,username,password);
+            System.out.println("[JoinLog -->] MySql Connection Successfull!");
+            
+
+            // Create default tables if they dont exist:
+            String createTable = "CREATE TABLE IF NOT EXISTS `jl_users` (`UserID` INT NOT NULL AUTO_INCREMENT,`UUID` VARCHAR(64) NULL,`Name` VARCHAR(128) NULL,PRIMARY KEY (`UserID`));";
+            String createLogTable = "CREATE TABLE `minecraft`.`jl_userlog` (`ID` INT NOT NULL AUTO_INCREMENT,`UUID` VARCHAR(64) NULL,`Date` DATETIME NULL,`Status` VARCHAR(45) NULL,PRIMARY KEY (`ID`));";
+            
+            
+            // Requires MySQL Connector 5.1 or newer!
+	        PreparedStatement myPreparedStatement = myConnection.prepareStatement(createTable);
+	        myPreparedStatement.executeUpdate();
+	            
+	        PreparedStatement myPreparedStatement2 = myConnection.prepareStatement(createLogTable);
+	        myPreparedStatement2.executeUpdate();
+	        
+	        
+
+	       
+            
         } catch (SQLException e) { //catching errors)
+        	System.out.println("[JoinLog -->] MySql Connection Failed :(((!");
             e.printStackTrace(); //prints out SQLException errors to the console (if any)
         }
         
@@ -70,19 +96,15 @@ public class JoinLog extends JavaPlugin {
     // Fired when plugin is disabled
     @Override
     public void onDisable() {
-        // envoke on disable.
-        try { //using a try catch to catch connection errors (like wrong sql password...)
-                if(connection!=null && !connection.isClosed()){ //checking if connection isn't null to
-                //avoid recieving a nullpointer
-                        connection.close(); //closing the connection field variable.
+        try {
+                if(myConnection!=null && !myConnection.isClosed()){
+                	myConnection.close(); 
                 }
         }catch(Exception e){
                         e.printStackTrace();
        
         }
-
     }
-    
     
     
     
@@ -97,11 +119,22 @@ public class JoinLog extends JavaPlugin {
             player.sendMessage("SSL Disabled");
         }
         
+        UUID vPlayerUUID = player.getUniqueId();
+        String vPlayername = player.getDisplayName();
+        
         // Save join information to db:
-       
-        
-        
-        
+        String sql = "INSERT INTO jl_users(name) VALUES ('"+ vPlayername+"');";
+        PreparedStatement myPreparedStatementJoin;
+		try {
+			myPreparedStatementJoin = myConnection.prepareStatement(sql);
+	        myPreparedStatementJoin.setString(1, "Something"); //I set the "?" to "Something"
+	        myPreparedStatementJoin.executeUpdate();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+   
     }
     
     
